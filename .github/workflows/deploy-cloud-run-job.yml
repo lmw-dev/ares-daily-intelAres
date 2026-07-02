@@ -1,0 +1,68 @@
+name: Build and Deploy to Cloud Run Job
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  PROJECT_ID: vertex-project-493203
+  REGION: us-central1
+  GAR_REPOSITORY: ares-daily-intel           # Artifact Registry 仓储名称
+  JOB_NAME: ares-daily-intel-job             # Cloud Run Job 名称
+  SERVICE_ACCOUNT: ares-runner@vertex-project-493203.iam.gserviceaccount.com # Cloud Run 运行时执行账号
+
+jobs:
+  deploy:
+    name: Deploy to GCP
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # 1. GCP 登录认证
+      # 注意：推荐在 GitHub Secrets 中配置 GCP_SA_KEY (Service Account JSON Key)
+      # 或者使用 Workload Identity Federation (WIF)
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      # 2. 设置 Cloud SDK 环境
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      # 3. 授权 Docker 访问 Artifact Registry
+      - name: Docker Auth to Artifact Registry
+        run: |
+          gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+
+      # 4. 构建并推送 Docker 镜像
+      - name: Build and Push Container Image
+        env:
+          IMAGE_TAG: us-central1-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.GAR_REPOSITORY }}/${{ env.JOB_NAME }}:${{ github.sha }}
+        run: |
+          docker build -t $IMAGE_TAG .
+          docker push $IMAGE_TAG
+          # 标记为 latest
+          docker tag $IMAGE_TAG us-central1-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.GAR_REPOSITORY }}/${{ env.JOB_NAME }}:latest
+          docker push us-central1-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.GAR_REPOSITORY }}/${{ env.JOB_NAME }}:latest
+
+      # 5. 部署 Cloud Run Job
+      # 官方文档支持使用 --image 指定镜像，并传入环境变量和运行 Service Account
+      - name: Deploy Cloud Run Job
+        run: |
+          gcloud run jobs deploy ${{ env.JOB_NAME }} \
+            --image us-central1-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.GAR_REPOSITORY }}/${{ env.JOB_NAME }}:latest \
+            --region ${{ env.REGION }} \
+            --service-account ${{ env.SERVICE_ACCOUNT }} \
+            --set-env-vars="GOOGLE_GENAI_USE_VERTEXAI=true,GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }},GOOGLE_CLOUD_LOCATION=${{ env.REGION }},GEMINI_MODEL=gemini-2.5-flash,GCS_BUCKET=ares-daily-intel-reports,DRY_RUN=false,MAX_MATCHES=1,MAX_GROUNDED_PROMPTS_PER_RUN=20" \
+            --max-retries 1 \
+            --task-timeout 10m \
+            --quiet

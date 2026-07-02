@@ -1,0 +1,11 @@
+scan_date: "2026-07-03"
+lookahead_hours: 48
+matches:
+  - league: "Premier League"
+    home: "Arsenal"
+    away: "Chelsea"
+    kickoff_time: "2026-07-03T20:00:00Z"
+  - league: "Serie A"
+    home: "Inter"
+    away: "Roma"
+    kickoff_time: "2026-07-03T18:45:00Z"

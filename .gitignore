@@ -1,0 +1,16 @@
+# Python 虚拟环境与字节码
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# 环境配置文件
+.env
+
+# 产生的分析报告（不应提交进 git，已实现本地+GCS双写）
+data/reports/
+
+# macOS 系统临时文件
+.DS_Store
