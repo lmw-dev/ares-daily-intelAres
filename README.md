@@ -64,3 +64,12 @@ ares-daily-intel/
   `04_RAG_Raw_Data/Prematch_Report/Ares_Daily_Intel/YYYY/MM/DD/`
 - 解析异常的原始备份将同步至本地：
   `99_Run_Logs/ares-daily-intel/YYYY/MM/DD/`
+
+## Auto Fixture Discovery
+Ares Daily Intel v0.2 版本支持了自动赛程挖掘模式。
+- **调度机制**：默认由 Cloud Scheduler 触发 Cloud Run Job 每日定时执行。
+- **自动发现**：任务运行时会自动载入 `data/scan_config.yml` 规则配置，利用 Gemini Grounding 联网挖掘未来 72 小时内的重点比赛对阵。
+- **规则配置**：
+  - 用户可以直接在本地修改 `data/scan_config.yml` 调整监控联赛 (`competitions`) 和关注的球队 (`watch_teams`)，只有修改此文件后才需要执行 Docker 构建重新发布。
+  - `manual_matches` 用于配置临时性人工兜底赛事，这部分赛事将获得最高合并优先级。
+  - 日常定时运行不要求任何手工干预，若当天无符合的重点赛事，系统会自动进入 `HOLD` 状态并推送无赛程警报摘要，绝不发生崩溃退出。

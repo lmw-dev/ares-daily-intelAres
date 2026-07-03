@@ -18,39 +18,89 @@ logging.basicConfig(
 )
 logger = logging.getLogger("ares-daily-intel")
 
+import yaml
 from app.config import settings
-from app.match_loader import load_matches_config, load_sources_config
+from app.match_loader import load_matches_config
 from app.gemini_client import get_gemini_client
 from app.scan import scan_single_match
 from app.report import generate_daily_reports
 from app.storage import save_to_local, upload_to_gcs, get_gcs_path
 from app.slack import push_to_slack
+from app.fixture_discovery import discover_fixtures
+from app.priority_selector import select_priority_matches
 
 def main():
     logger.info("=== Ares Daily Intelligence System Starting ===")
     logger.info(f"Configuration profile: DRY_RUN={settings.dry_run}, VertexAI={settings.google_genai_use_vertexai}")
     
-    # 1. 加载比赛和搜索源配置
-    try:
-        matches_data = load_matches_config()
-        scan_date = matches_data.get("scan_date", "2026-07-03")
-        matches = matches_data.get("matches", [])
-        logger.info(f"Loaded matches config. Scan date: {scan_date}. Found {len(matches)} matches.")
-    except Exception as e:
-        logger.critical(f"Failed to load match configurations: {e}")
-        sys.exit(1)
+    # 1. 载入 scan_config.yml
+    config_path = "data/scan_config.yml"
+    config = {}
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                config = yaml.safe_load(f) or {}
+            logger.info("Loaded scan_config.yml successfully.")
+        except Exception as e:
+            logger.error(f"Failed to load scan_config.yml: {e}")
 
+    mode = config.get("mode", "auto_discovery")
+    matches = []
+    
+    import datetime
+    tz = datetime.timezone(datetime.timedelta(hours=8))
+    now = datetime.datetime.now(tz)
+    scan_date = now.strftime("%Y-%m-%d")
+
+    if mode == "auto_discovery":
+        # 自动赛程发现模式
+        candidates = discover_fixtures(config)
+        matches = select_priority_matches(candidates, config)
+    else:
+        # 手工指定模式 (回退至 data/matches.yml)
+        try:
+            matches_data = load_matches_config()
+            scan_date = matches_data.get("scan_date", scan_date)
+            matches = matches_data.get("matches", [])
+            logger.info(f"Manual mode: loaded matches config. Scan date: {scan_date}. Found {len(matches)} matches.")
+        except Exception as e:
+            logger.critical(f"Failed to load manual match configurations: {e}")
+            sys.exit(1)
+
+    # 2. 如果最终没有比赛候选，生成并上传 HOLD 报告并退场
     if not matches:
-        logger.info("No matches configuration found for today. Exiting.")
+        logger.info("No matches discovered or manually configured for today. Generating HOLD report.")
+        timestamp_str = now.strftime("%H%M")
+        gcs_dir = get_gcs_path(scan_date)
+        gcs_full_path = f"gs://{settings.gcs_bucket}/{gcs_dir}/{scan_date}_{timestamp_str}_daily_scan.md"
+        
+        markdown_report, report_json = generate_daily_reports([], scan_date, gcs_full_path)
+        
+        try:
+            save_to_local(scan_date, markdown_report, report_json, [], timestamp=timestamp_str)
+        except Exception as e:
+            logger.error(f"Failed to save HOLD report locally: {e}")
+            
+        try:
+            upload_to_gcs(scan_date, markdown_report, report_json, [], timestamp=timestamp_str)
+        except Exception as e:
+            logger.error(f"Failed to upload HOLD report to GCS: {e}")
+            
+        try:
+            push_to_slack(report_json, scan_date, timestamp=timestamp_str)
+        except Exception as e:
+            logger.error(f"Failed to trigger Slack push for HOLD report: {e}")
+            
+        logger.info("=== Ares Daily Intelligence Job Finished with HOLD (No Fixtures) ===")
         sys.exit(0)
 
-    # 2. 成本预算控制：最大比赛数切片限制 (Billing Guard)
-    max_matches = settings.max_matches
+    # 3. 成本预算控制：最大比赛数切片限制 (Billing Guard)
+    max_matches = config.get("max_matches", settings.max_matches)
     if len(matches) > max_matches:
-        logger.warning(f"Today's matches count ({len(matches)}) exceeds MAX_MATCHES ({max_matches}). Slicing match list to comply with billing budget.")
+        logger.warning(f"Today's matches count ({len(matches)}) exceeds max_matches ({max_matches}). Slicing match list to comply with billing budget.")
         matches = matches[:max_matches]
 
-    # 3. 初始化 Gemini SDK 客户端 (如果是 Dry-run 则不要求初始化成功，以支持离线开发测试)
+    # 4. 初始化 Gemini SDK 客户端
     client = None
     if not settings.dry_run:
         try:
@@ -60,7 +110,7 @@ def main():
             logger.critical(f"Failed to initialize Gemini / Vertex Client: {e}")
             sys.exit(1)
 
-    # 4. 逐场进行赛事扫描与深度分析
+    # 5. 逐场进行赛事扫描与深度分析
     scan_results = []
     grounded_prompts_attempted = 0
     max_grounded_prompts = settings.max_grounded_prompts_per_run

@@ -241,6 +241,16 @@ def scan_single_match(client: genai.Client, match: Dict[str, Any]) -> Dict[str, 
             }
         }
 
+    # 6. 后置信心安全规则校验：如果 source 为 SEARCH_SUMMARY 且信心为 HIGH，强行降级为 MEDIUM
+    if isinstance(parsed_json, dict) and "market_preview" in parsed_json:
+        market = parsed_json["market_preview"]
+        if isinstance(market, dict):
+            src = str(market.get("source", "")).upper()
+            conf = str(market.get("confidence", "")).upper()
+            if src == "SEARCH_SUMMARY" and conf == "HIGH":
+                logger.info(f"Enforcing confidence limit: downgrading SEARCH_SUMMARY from HIGH to MEDIUM for {home} vs {away}")
+                market["confidence"] = "MEDIUM"
+
     # 返回单场扫描结果
     return {
         "text": response_text,

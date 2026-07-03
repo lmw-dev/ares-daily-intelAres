@@ -1,0 +1,29 @@
+mode: auto_discovery
+lookahead_hours: 72
+max_matches: 3
+
+competitions:
+  - FIFA World Cup
+  - Club World Cup
+
+watch_teams:
+  - Spain
+  - Portugal
+  - England
+  - France
+  - Argentina
+  - Brazil
+  - Germany
+  - Netherlands
+  - Belgium
+  - United States
+
+priority_rules:
+  - knockout_match
+  - world_cup_match
+  - big_team
+  - high_news_volume
+  - injury_news_available
+  - market_preview_available
+
+manual_matches: []
