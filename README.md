@@ -45,3 +45,22 @@ ares-daily-intel/
    ```bash
    python app/main.py
    ```
+
+## Sync GCS reports to Obsidian
+由于 Cloud Run Job 部署在云端只能向 GCS 存储桶进行文件归档，为使本地 Obsidian / Ares Vault 保持同步以提供 RAG 分析，您需要在本机手动或配置脚本定期拉取同步。
+
+我们提供了同步脚本 `scripts/sync_gcs_to_obsidian.sh`：
+1. **默认执行**（同步北京时间当天归档）：
+   ```bash
+   ./scripts/sync_gcs_to_obsidian.sh
+   ```
+2. **手动指定日期同步**（格式 `YYYY/MM/DD`）：
+   ```bash
+   SYNC_DATE=2026/07/03 ./scripts/sync_gcs_to_obsidian.sh
+   ```
+
+**同步归档规则**：
+- 日报与元数据（`*_daily_scan.md` & `*.json`）将同步至本地：
+  `04_RAG_Raw_Data/Prematch_Report/Ares_Daily_Intel/YYYY/MM/DD/`
+- 解析异常的原始备份将同步至本地：
+  `99_Run_Logs/ares-daily-intel/YYYY/MM/DD/`
