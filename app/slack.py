@@ -5,7 +5,7 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-def make_slack_summary(report_json: Dict[str, Any], scan_date: str) -> str:
+def make_slack_summary(report_json: Dict[str, Any], scan_date: str, timestamp: str = "") -> str:
     """
     根据 report.json 生成用于 Slack 推送的简明摘要 Markdown 文本。
     包含元数据、赛事表格汇总、内部 GCS 归档路径，且无公开 GCS 链接。
@@ -56,13 +56,16 @@ def make_slack_summary(report_json: Dict[str, Any], scan_date: str) -> str:
     # 附带 GCS 内部路径
     parts = scan_date.split("-")
     gcs_dir = f"{parts[0]}/{parts[1]}/{parts[2]}" if len(parts) == 3 else "unknown"
-    gcs_path = f"gs://{settings.gcs_bucket}/{gcs_dir}/scan.md"
+    suffix = f"_{timestamp}" if timestamp else ""
+    md_name = f"{scan_date}{suffix}_daily_scan.md"
+    json_name = f"{scan_date}{suffix}_daily_scan.json"
+    gcs_path = f"gs://{settings.gcs_bucket}/{gcs_dir}/{md_name}"
     
-    summary_text += f"\n📦 *Internal Archive:*\n• `{gcs_path}`\n• `{gcs_path.replace('.md', '.json')}`"
+    summary_text += f"\n📦 *Internal Archive:*\n• `{gcs_path}`\n• `{gcs_path.replace(md_name, json_name)}`"
     
     return summary_text
 
-def push_to_slack(report_json: Dict[str, Any], scan_date: str) -> bool:
+def push_to_slack(report_json: Dict[str, Any], scan_date: str, timestamp: str = "") -> bool:
     """
     将扫描摘要推送至 Slack Webhook 频道。
     """
@@ -71,7 +74,7 @@ def push_to_slack(report_json: Dict[str, Any], scan_date: str) -> bool:
         logger.warning("SLACK_WEBHOOK_URL environment variable is not configured. Skipping Slack push.")
         return False
 
-    summary_markdown = make_slack_summary(report_json, scan_date)
+    summary_markdown = make_slack_summary(report_json, scan_date, timestamp)
     
     # 构造 Slack Block Kit 或普通的 attachments 消息
     payload = {

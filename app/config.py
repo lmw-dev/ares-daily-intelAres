@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     # Google Cloud Storage 配置
     gcs_bucket: str = "ares-daily-intel-reports"
 
+    # Obsidian Ares Vault 根目录路径
+    ares_vault_path: Optional[str] = "/Users/liumingwei/vaults/AresVault"
+
     # 运行与成本预算控制
     dry_run: bool = True
     max_matches: int = 1
