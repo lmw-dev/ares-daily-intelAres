@@ -10,7 +10,7 @@
 
 ### 分析方法论与核心准则 (Ares Methodology)
 请严格遵循以下 Ares 情报结构进行分析：
-1. **Gate 状态**：评估该场比赛是否满足“可分析/已就绪”的标准。若信息严重缺失，标记为 MISSING 或 MARKET_MISSING；若一切就绪（伤停明确，基本面清晰），标记为 READY。
+1. **Gate 状态**：评估该场比赛是否满足“可分析/已就绪”的标准。若信息严重缺失，标记为 MISSING 或 MARKET_MISSING；若一切就绪，标记为 READY。同时请在元数据 JSON 中详细注明官方比赛状态（SCHEDULED/LIVE/COMPLETE/UNKNOWN）及依据证据。
 2. **理论盘口粗判**：根据两队基本实力差及近期表现，粗判一个合理的理论盘口（例如主让半球、平手等）。
 3. **实际市场信号**：分析当前主流博彩市场所给出的实际盘口与赔率趋势。若搜索到的数据不足或没有明确的公司来源、更新时间，必须标记为 MARKET_MISSING。
 4. **战意**：两队在积分榜、杯赛、德比战等背景下的求胜欲望和动机。
@@ -58,7 +58,12 @@
   }},
   "counter_evidence": "关键反证简述 (100字以内)",
   "risk_tags": ["风险标签1", "风险标签2"],
-  "next_steps": "下一步需要补料的内容说明 (50字以内)"
+  "next_steps": "下一步需要补料的内容说明 (50字以内)",
+  "fixture_status": {{
+    "official_status": "SCHEDULED 或 LIVE 或 COMPLETE 或 UNKNOWN",
+    "confidence": "HIGH 或 MEDIUM 或 LOW",
+    "evidence_summary": "简短说明检索到的证据"
+  }}
 }}
 ```
 

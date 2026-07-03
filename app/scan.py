@@ -112,7 +112,12 @@ def get_mock_result(match: Dict[str, Any]) -> Dict[str, Any]:
   }},
   "counter_evidence": "{away} 具备韧性，已连续3场客场客胜/战平盘口",
   "risk_tags": ["Tactical mismatch", "Under goal dynamic"],
-  "next_steps": "Observe initial lineups 1 hour prior to kickoff"
+  "next_steps": "Observe initial lineups 1 hour prior to kickoff",
+  "fixture_status": {{
+    "official_status": "SCHEDULED",
+    "confidence": "HIGH",
+    "evidence_summary": "Mock Spain vs Austria match scheduled confirmation"
+  }}
 }}
 ```"""
     
@@ -135,7 +140,12 @@ def get_mock_result(match: Dict[str, Any]) -> Dict[str, Any]:
         },
         "counter_evidence": f"{away} 具备韧性，已连续3场客场客胜/战平盘口",
         "risk_tags": ["Tactical mismatch", "Under goal dynamic"],
-        "next_steps": "Observe initial lineups 1 hour prior to kickoff"
+        "next_steps": "Observe initial lineups 1 hour prior to kickoff",
+        "fixture_status": {
+            "official_status": "SCHEDULED",
+            "confidence": "HIGH",
+            "evidence_summary": "Mock Spain vs Austria match scheduled confirmation"
+        }
     }
 
     return {
@@ -192,7 +202,12 @@ def scan_single_match(client: genai.Client, match: Dict[str, Any]) -> Dict[str, 
                 "home": home,
                 "away": away,
                 "gate_status": "MISSING",
-                "parse_status": "FAILED"
+                "parse_status": "FAILED",
+                "fixture_status": {
+                    "official_status": "UNKNOWN",
+                    "confidence": "LOW",
+                    "evidence_summary": "Failed to call Gemini API due to remote network or permission error"
+                }
             },
             "source_urls": [],
             "parse_status": "FAILED",
@@ -218,7 +233,12 @@ def scan_single_match(client: genai.Client, match: Dict[str, Any]) -> Dict[str, 
                 "confidence": "LOW",
                 "source": "MARKET_MISSING"
             },
-            "parse_status": "FAILED"
+            "parse_status": "FAILED",
+            "fixture_status": {
+                "official_status": "UNKNOWN",
+                "confidence": "LOW",
+                "evidence_summary": "JSON extraction failed from response text"
+            }
         }
 
     # 返回单场扫描结果
