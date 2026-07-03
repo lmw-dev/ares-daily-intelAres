@@ -107,3 +107,57 @@ class TestDiscovery(unittest.TestCase):
 
         # 验证后置降级机制是否生效
         self.assertEqual(result["json"]["market_preview"]["confidence"], "MEDIUM")
+
+    @patch('app.main.settings')
+    @patch('google.cloud.storage.Client')
+    def test_load_scan_config_from_gcs_success(self, mock_gcs_client, mock_settings):
+        """测试从 GCS 成功拉取并解析 scan_config.yml 的分支"""
+        mock_settings.gcs_bucket = "mock-bucket"
+        
+        # 伪造 GCS 下载行为
+        mock_blob = MagicMock()
+        mock_blob.exists.return_value = True
+        mock_blob.download_as_text.return_value = """
+        mode: auto_discovery
+        lookahead_hours: 48
+        max_matches: 2
+        competitions: []
+        watch_teams: []
+        manual_matches: []
+        """
+        
+        mock_bucket = MagicMock()
+        mock_bucket.blob.return_value = mock_blob
+        
+        mock_client = MagicMock()
+        mock_client.bucket.return_value = mock_bucket
+        mock_gcs_client.return_value = mock_client
+        
+        from app.main import load_scan_config_from_gcs
+        config = load_scan_config_from_gcs()
+        
+        self.assertIsNotNone(config)
+        self.assertEqual(config.get("lookahead_hours"), 48)
+        self.assertEqual(config.get("max_matches"), 2)
+
+    @patch('app.main.settings')
+    @patch('google.cloud.storage.Client')
+    def test_load_scan_config_from_gcs_fallback(self, mock_gcs_client, mock_settings):
+        """测试当 GCS 不存在配置文件或拉取失败时返回 None 以便 Fallback"""
+        mock_settings.gcs_bucket = "mock-bucket"
+        
+        # 模拟文件不存在
+        mock_blob = MagicMock()
+        mock_blob.exists.return_value = False
+        
+        mock_bucket = MagicMock()
+        mock_bucket.blob.return_value = mock_blob
+        
+        mock_client = MagicMock()
+        mock_client.bucket.return_value = mock_bucket
+        mock_gcs_client.return_value = mock_client
+        
+        from app.main import load_scan_config_from_gcs
+        config = load_scan_config_from_gcs()
+        
+        self.assertIsNone(config)

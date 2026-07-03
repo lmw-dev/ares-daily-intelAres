@@ -29,20 +29,46 @@ from app.slack import push_to_slack
 from app.fixture_discovery import discover_fixtures
 from app.priority_selector import select_priority_matches
 
+from typing import Optional, Dict, Any
+
+def load_scan_config_from_gcs() -> Optional[Dict[str, Any]]:
+    """优先尝试从 GCS 动态载入配置文件。"""
+    bucket_name = settings.gcs_bucket
+    if not bucket_name:
+        return None
+    try:
+        from google.cloud import storage as gcs
+        client = gcs.Client()
+        bucket = client.bucket(bucket_name)
+        blob = bucket.blob("config/scan_config.yml")
+        if blob.exists():
+            content = blob.download_as_text(encoding="utf-8")
+            config_data = yaml.safe_load(content)
+            if isinstance(config_data, dict):
+                logger.info(f"Successfully loaded scan_config.yml from GCS (gs://{bucket_name}/config/scan_config.yml)")
+                return config_data
+    except Exception as e:
+        logger.warning(f"Failed to load scan_config.yml from GCS: {e}. Falling back to local configuration.")
+    return None
+
 def main():
     logger.info("=== Ares Daily Intelligence System Starting ===")
     logger.info(f"Configuration profile: DRY_RUN={settings.dry_run}, VertexAI={settings.google_genai_use_vertexai}")
     
-    # 1. 载入 scan_config.yml
-    config_path = "data/scan_config.yml"
-    config = {}
-    if os.path.exists(config_path):
-        try:
-            with open(config_path, "r", encoding="utf-8") as f:
-                config = yaml.safe_load(f) or {}
-            logger.info("Loaded scan_config.yml successfully.")
-        except Exception as e:
-            logger.error(f"Failed to load scan_config.yml: {e}")
+    # 1. 载入 scan_config.yml（优先从 GCS 动态抓取，若失败则回退至本地 fallback 文件）
+    config = load_scan_config_from_gcs()
+    if config is None:
+        config_path = "data/scan_config.yml"
+        config = {}
+        if os.path.exists(config_path):
+            try:
+                with open(config_path, "r", encoding="utf-8") as f:
+                    config = yaml.safe_load(f) or {}
+                logger.info("Loaded scan_config.yml from local fallback successfully.")
+            except Exception as e:
+                logger.error(f"Failed to load local scan_config.yml: {e}")
+        else:
+            logger.warning("No local fallback scan_config.yml found.")
 
     mode = config.get("mode", "auto_discovery")
     matches = []
