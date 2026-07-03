@@ -2,7 +2,9 @@
 
 **运行环境/配置**:
 - Model: {model}
-- Location: {location}
+- Runtime: {runtime}
+- Cloud Run Region: {cloud_run_region}
+- Google Cloud Location: {google_cloud_location}
 - Run ID: {run_id}
 - Run Status: JSON Parse {parse_status}
 - Stats: Grounded Requests: {grounded_requests_attempted} | Support URLs: {grounding_support_urls_count}

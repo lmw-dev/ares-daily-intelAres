@@ -28,7 +28,10 @@ def generate_daily_reports(
     """
     run_id = str(uuid.uuid4())
     model = settings.gemini_model
-    location = settings.google_cloud_location if settings.google_genai_use_vertexai else "local"
+    is_cloud_run = bool(os.environ.get("K_SERVICE") or os.environ.get("CLOUD_RUN_JOB"))
+    runtime = "cloud_run" if is_cloud_run else "local"
+    cloud_run_region = os.environ.get("CLOUD_RUN_REGION", "us-central1") if is_cloud_run else "N/A"
+    google_cloud_location = settings.google_cloud_location
 
     # 1. 统计各项元数据指标
     grounded_requests = len(scan_results) if not settings.dry_run else 0
@@ -92,7 +95,9 @@ def generate_daily_reports(
     markdown_report = template.format(
         scan_date=scan_date,
         model=model,
-        location=location,
+        runtime=runtime,
+        cloud_run_region=cloud_run_region,
+        google_cloud_location=google_cloud_location,
         run_id=run_id,
         parse_status=overall_parse_status,
         grounded_requests_attempted=grounded_requests,
@@ -107,7 +112,9 @@ def generate_daily_reports(
         "run_metadata": {
             "run_id": run_id,
             "model": model,
-            "location": location,
+            "runtime": runtime,
+            "cloud_run_region": cloud_run_region,
+            "google_cloud_location": google_cloud_location,
             "grounded_requests_attempted": grounded_requests,
             "source_urls_count": total_sources_count,
             "parse_status": overall_parse_status,
